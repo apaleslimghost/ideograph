@@ -1,0 +1,36 @@
+body {
+	margin: 0;
+}
+
+#add {
+	position: absolute;
+	z-index: 1;
+	bottom: 1ex;
+	left: 1ex;
+}
+
+#space, body, html {
+	height: 100%;
+}
+
+#space {
+	position: relative;
+}
+
+.emoji {
+	font-size: 1.5em;
+	width: 1.5em;
+	height: 1.5em;
+	cursor: grab;
+	position: absolute;
+	top: -0.75em;
+	left: -0.75em;
+	user-select: none;
+	text-align: center;
+	line-height: 1.5em;
+	outline: 1px dashed black;
+}
+
+.emoji.dragging {
+	cursor: grabbing;
+}

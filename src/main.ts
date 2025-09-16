@@ -1,24 +1,71 @@
-import './style.css'
-import typescriptLogo from './typescript.svg'
-import viteLogo from '/vite.svg'
-import { setupCounter } from './counter.ts'
+import './index.css'
+import * as emoji from 'node-emoji'
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <div>
-    <a href="https://vite.dev" target="_blank">
-      <img src="${viteLogo}" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://www.typescriptlang.org/" target="_blank">
-      <img src="${typescriptLogo}" class="logo vanilla" alt="TypeScript logo" />
-    </a>
-    <h1>Vite + TypeScript</h1>
-    <div class="card">
-      <button id="counter" type="button"></button>
-    </div>
-    <p class="read-the-docs">
-      Click on the Vite and TypeScript logos to learn more
-    </p>
-  </div>
-`
+const button = document.querySelector<HTMLDivElement>('#add')!
+const space = document.querySelector<HTMLDivElement>('#space')!
 
-setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+const emojis: {emoji: string, x: number, y: number, element: HTMLElement}[] = []
+const connections = []
+
+function addEmoji(event: TouchEvent | MouseEvent) {
+  event.stopImmediatePropagation()
+
+  const e = emoji.random().emoji
+
+  const el = document.createElement('div')
+  el.classList.add('emoji')
+  el.innerHTML = e
+
+  const index = emojis.push({
+    emoji: e,
+    x: 100,
+    y: 100,
+    element: el
+  })
+
+  el.style.translate = '100px 100px'
+  el.dataset.index = (index - 1).toString()
+
+  space.append(el)
+}
+
+requestAnimationFrame(function render() {
+  for(const e of emojis) {
+    e.element.style.translate = `${e.x}px ${e.y}px`
+  }
+
+  requestAnimationFrame(render)
+})
+
+button.addEventListener('click', addEmoji)
+button.addEventListener('touchstart', addEmoji)
+
+const isEmoji = (e: EventTarget | null): e is HTMLElement => (
+  e instanceof HTMLElement && e.classList.contains('emoji')
+)
+
+let dragging: HTMLElement | undefined
+
+function drag(event: MouseEvent) {
+  if(!(dragging && dragging.dataset.index)) return
+
+  const e = emojis[parseInt(dragging.dataset.index)]
+  e.x = event.x
+  e.y = event.y
+}
+
+space.addEventListener('mousedown', (event) => {
+  if(!isEmoji(event.target)) return
+
+  event.target.classList.add('dragging')
+  dragging = event.target
+})
+
+space.addEventListener('mouseup', (event) => {
+  if(!dragging) return
+
+  dragging.classList.remove('dragging')
+  dragging = undefined
+})
+
+space.addEventListener('mousemove', drag)
