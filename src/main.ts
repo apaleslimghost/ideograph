@@ -1,3 +1,4 @@
+import PoissonDiskSampling from 'poisson-disk-sampling'
 import './index.css'
 import * as emoji from 'node-emoji'
 
@@ -6,6 +7,14 @@ const space = document.querySelector<HTMLDivElement>('#space')!
 
 const emojis: {emoji: string, x: number, y: number, element: HTMLElement}[] = []
 const connections = []
+
+const sample = new PoissonDiskSampling({
+  shape: [
+    space.clientWidth,
+    space.clientHeight
+  ],
+  minDistance: 100
+})
 
 function addEmoji(event: TouchEvent | MouseEvent) {
   event.stopImmediatePropagation()
@@ -16,10 +25,17 @@ function addEmoji(event: TouchEvent | MouseEvent) {
   el.classList.add('emoji')
   el.innerHTML = e
 
+  const [x, y] = sample.next() ?? [
+    space.clientWidth / 2,
+    space.clientHeight / 2
+  ]
+
+  sample.addPoint([x, y])
+
   const index = emojis.push({
     emoji: e,
-    x: 100,
-    y: 100,
+    x,
+    y,
     element: el
   })
 
