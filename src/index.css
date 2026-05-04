@@ -9,7 +9,9 @@ body {
 	left: 1ex;
 }
 
-#space, body, html {
+#space,
+body,
+html {
 	height: 100%;
 }
 
@@ -21,7 +23,6 @@ body {
 	font-size: 1.5em;
 	width: 1.5em;
 	height: 1.5em;
-	cursor: grab;
 	position: absolute;
 	top: -0.75em;
 	left: -0.75em;
@@ -29,8 +30,4 @@ body {
 	text-align: center;
 	line-height: 1.5em;
 	outline: 1px dashed black;
-}
-
-.emoji.dragging {
-	cursor: grabbing;
 }
