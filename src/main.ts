@@ -5,16 +5,6 @@ import * as emoji from "node-emoji";
 
 const space = document.querySelector<HTMLDivElement>("#space")!;
 
-type Emoji = {
-	emoji: string;
-	x: number;
-	y: number;
-	element: HTMLElement;
-	connections?: number[];
-};
-
-const emojis: Emoji[] = [];
-
 const Tile = defineHex({ dimensions: 30 });
 const grid = new Grid(Tile, rectangle({ width: 47, height: 47 }));
 const svg = SVG().addTo(space).size("100%", "100%");
@@ -35,21 +25,14 @@ function addEmoji(event: MouseEvent) {
 
 	const e = emoji.random().emoji;
 
-	const el = document.createElement("div");
-	el.classList.add("emoji");
-	el.innerHTML = e;
-
-	const index = emojis.push({
-		emoji: e,
-		x: gridPosition.x,
-		y: gridPosition.y,
-		element: el,
-	});
-
-	el.style.translate = `${gridPosition.x}px ${gridPosition.y}px`;
-	el.dataset.index = (index - 1).toString();
-
-	space.append(el);
+	svg.text(e)
+		.font({
+			anchor: "middle",
+			size: "2em",
+			leading: "2em",
+			"dominant-baseline": "central",
+		})
+		.amove(gridPosition.x, gridPosition.y);
 }
 
 space.addEventListener("mousedown", addEmoji);
