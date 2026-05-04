@@ -23,8 +23,12 @@ function send<T>(target: Hex, data: T) {
 		data,
 	};
 
+	cell?.polygon
+		.fill(cell.glyph ? "#CE93D8" : "#F3E5F5")
+		.animate(200)
+		.fill("#ffffff");
+
 	if (cell?.glyph) {
-		cell.polygon.fill("#EA80FC").animate(100).fill("#ffffff");
 		cell.glyph.onMessage?.(context);
 	}
 }
@@ -34,6 +38,7 @@ type Glyph = {
 	symbol: string;
 	onMessage?: <T>(context: Context<T>) => void;
 	onInit?: <T>(context: Context<T>) => void;
+	onEnd?: <T>(context: Context<T>) => void;
 	inlets: HexSide[];
 	outlets: HexSide[];
 };
@@ -201,6 +206,11 @@ const glyphs: Glyph[] = [
 		symbol: "⚹",
 		inlets: [],
 		outlets: [],
+		onMessage(ctx) {
+			ctx.neighbourhood.forEach((hex) => {
+				send(hex, ctx.data);
+			});
+		},
 	},
 	{
 		name: "semisextile",
@@ -240,7 +250,7 @@ grid.forEach((hex) => {
 	cells.set(hex, { polygon, rotation: 0 });
 });
 
-function addSymbol(event: MouseEvent) {
+function getEventHex(event: MouseEvent | WheelEvent) {
 	if (space.classList.contains("pending")) {
 		return;
 	}
@@ -249,10 +259,12 @@ function addSymbol(event: MouseEvent) {
 	const x = event.clientX;
 	const y = event.clientY;
 
-	const hex = grid.pointToHex({ x, y });
+	return grid.pointToHex({ x, y });
+}
+
+function setGlyph(hex: Hex, glyph: Glyph) {
 	const cell = cells.get(hex)!;
 
-	const glyph = glyphs[0];
 	glyph.onInit?.({
 		neighbourhood: neighbourhood(hex),
 		self: hex,
@@ -276,7 +288,27 @@ function addSymbol(event: MouseEvent) {
 	cell.text = text;
 }
 
+function addSymbol(event: MouseEvent) {
+	const hex = getEventHex(event);
+	if (!hex) return;
+
+	setGlyph(hex, glyphs[0]);
+}
+
+function rotateSymbol(event: WheelEvent) {
+	const hex = getEventHex(event);
+	if (!hex) return;
+	const cell = cells.get(hex);
+	if (!cell?.glyph) return;
+
+	const dir = Math.sign(event.deltaY);
+	const index = glyphs.indexOf(cell.glyph);
+	const glyph = glyphs[(index + dir + glyphs.length) % glyphs.length];
+	setGlyph(hex, glyph);
+}
+
 space.addEventListener("mousedown", addSymbol);
+space.addEventListener("wheel", rotateSymbol);
 
 space.addEventListener("click", async () => {
 	if (space.classList.contains("pending")) {
