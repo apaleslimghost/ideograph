@@ -19,6 +19,26 @@ html {
 	position: relative;
 }
 
+#space.pending::after {
+	content: "⏯︎";
+	cursor: progress;
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	display: block;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 1000;
+	background: rgba(0, 0, 0, 0.4);
+	font-size: 8em;
+	color: var(--colour-steel-9);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
 .emoji {
 	font-size: 1.5em;
 	width: 1.5em;

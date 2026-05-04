@@ -1,6 +1,7 @@
 import { defineHex, Grid, type Hex, rectangle, ring } from "honeycomb-grid";
 import "./index.css";
 import { type Polygon, SVG, type Text } from "@svgdotjs/svg.js";
+import * as Tone from "tone";
 
 const space = document.querySelector<HTMLDivElement>("#space")!;
 
@@ -23,7 +24,7 @@ function send<T>(target: Hex, data: T) {
 	};
 
 	if (cell?.glyph) {
-		cell.polygon.fill("#ff0000").animate(100).fill("#ffffff");
+		cell.polygon.fill("#EA80FC").animate(100).fill("#ffffff");
 		cell.glyph.onMessage?.(context);
 	}
 }
@@ -50,12 +51,12 @@ const glyphs: Glyph[] = [
 	{
 		name: "sun",
 		symbol: "☉",
-		onInit: ({ neighbourhood, self }) => {
-			setInterval(() => {
+		onInit: ({ neighbourhood }) => {
+			new Tone.Loop(() => {
 				neighbourhood.forEach((hex) => {
 					send(hex, null);
 				});
-			}, 1000);
+			}, "4n").start("1m");
 		},
 		inlets: [],
 		outlets: [0, 1, 2, 3, 4, 5],
@@ -240,6 +241,10 @@ grid.forEach((hex) => {
 });
 
 function addSymbol(event: MouseEvent) {
+	if (space.classList.contains("pending")) {
+		return;
+	}
+
 	event.stopImmediatePropagation();
 	const x = event.clientX;
 	const y = event.clientY;
@@ -272,3 +277,11 @@ function addSymbol(event: MouseEvent) {
 }
 
 space.addEventListener("mousedown", addSymbol);
+
+space.addEventListener("click", async () => {
+	if (space.classList.contains("pending")) {
+		await Tone.start();
+		Tone.getTransport().start();
+		space.classList.remove("pending");
+	}
+});
