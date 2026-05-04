@@ -5,8 +5,8 @@ import * as emoji from 'node-emoji'
 const button = document.querySelector<HTMLDivElement>('#add')!
 const space = document.querySelector<HTMLDivElement>('#space')!
 
-const emojis: {emoji: string, x: number, y: number, element: HTMLElement}[] = []
-const connections = []
+const emojis: {emoji: string, x: number, y: number, element: HTMLElement, connections?: number[]}[] = []
+const connections: [number, number][] = []
 
 const sample = new PoissonDiskSampling({
   shape: [
@@ -48,6 +48,7 @@ function addEmoji(event: TouchEvent | MouseEvent) {
 requestAnimationFrame(function render() {
   for(const e of emojis) {
     e.element.style.translate = `${e.x}px ${e.y}px`
+    e.element.dataset.connections = e.connections?.join()
   }
 
   requestAnimationFrame(render)
@@ -78,9 +79,19 @@ space.addEventListener('mousedown', (event) => {
 })
 
 space.addEventListener('mouseup', (event) => {
-  if(!dragging) return
+  if(!(dragging && dragging.dataset.index)) return
 
   dragging.classList.remove('dragging')
+
+  const e = emojis[parseInt(dragging.dataset.index)]
+  for(const [i, f] of emojis.entries()) {
+    if(f.element !== dragging && Math.hypot(e.x - f.x, e.y - f.y) < 20) {
+      const c = connections.push([parseInt(dragging.dataset.index), i]) - 1
+      e.connections = e.connections?.concat(c) ?? [c]
+      f.connections = f.connections?.concat(c) ?? [c]
+    }
+  }
+
   dragging = undefined
 })
 
