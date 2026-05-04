@@ -1,61 +1,224 @@
-import { defineHex, Grid, type Hex, rectangle } from "honeycomb-grid";
+import { defineHex, Grid, type Hex, rectangle, ring } from "honeycomb-grid";
 import "./index.css";
 import { type Polygon, SVG, type Text } from "@svgdotjs/svg.js";
 
 const space = document.querySelector<HTMLDivElement>("#space")!;
 
-type Context = {
-	neighbourhood: [Hex, Hex, Hex, Hex, Hex, Hex];
+type Context<T> = {
+	neighbourhood: Hex[];
 	self: Hex;
+	data?: T;
 };
+
+function neighbourhood(hex: Hex): Hex[] {
+	return Array.from(grid.traverse(ring({ center: hex, radius: 1 })));
+}
+
+function send<T>(target: Hex, data: T) {
+	const cell = cells.get(target);
+	const context: Context<T> = {
+		neighbourhood: neighbourhood(target),
+		self: target,
+		data,
+	};
+
+	if (cell?.glyph) {
+		cell.polygon.fill("#ff0000").animate(100).fill("#ffffff");
+		cell.glyph.onMessage?.(context);
+	}
+}
 
 type Glyph = {
 	name: string;
 	symbol: string;
-	onMessage: (context: Context) => void;
+	onMessage?: <T>(context: Context<T>) => void;
+	onInit?: <T>(context: Context<T>) => void;
+	inlets: HexSide[];
+	outlets: HexSide[];
 };
+
+type HexSide = 0 | 1 | 2 | 3 | 4 | 5;
 
 type Cell = {
 	polygon: Polygon;
 	text?: Text;
 	glyph?: Glyph;
+	rotation: HexSide;
 };
 
 const glyphs: Glyph[] = [
-	{ name: "sun", symbol: "☉", onMessage: () => {} },
-	{ name: "moon", symbol: "☽", onMessage: () => {} },
-	{ name: "mercury", symbol: "☿", onMessage: () => {} },
-	{ name: "venus", symbol: "♀", onMessage: () => {} },
-	{ name: "mars", symbol: "♂", onMessage: () => {} },
-	{ name: "jupiter", symbol: "♃", onMessage: () => {} },
-	{ name: "saturn", symbol: "♄", onMessage: () => {} },
-	{ name: "uranus", symbol: "♅", onMessage: () => {} },
-	{ name: "neptune", symbol: "♆", onMessage: () => {} },
-	{ name: "conjunction", symbol: "☌", onMessage: () => {} },
-	{ name: "opposition", symbol: "☍", onMessage: () => {} },
-	{ name: "aries", symbol: "♈︎", onMessage: () => {} },
-	{ name: "taurus", symbol: "♉︎", onMessage: () => {} },
-	{ name: "gemini", symbol: "♊︎", onMessage: () => {} },
-	{ name: "cancer", symbol: "♋︎", onMessage: () => {} },
-	{ name: "leo", symbol: "♌︎", onMessage: () => {} },
-	{ name: "virgo", symbol: "♍︎", onMessage: () => {} },
-	{ name: "libra", symbol: "♎︎", onMessage: () => {} },
-	{ name: "scorpio", symbol: "♏︎", onMessage: () => {} },
-	{ name: "sagittarius", symbol: "♐︎", onMessage: () => {} },
-	{ name: "capricorn", symbol: "♑︎", onMessage: () => {} },
-	{ name: "aquarius", symbol: "♒︎", onMessage: () => {} },
-	{ name: "pisces", symbol: "♓︎", onMessage: () => {} },
-	{ name: "pluto", symbol: "♇", onMessage: () => {} },
-	{ name: "ceres", symbol: "⚳", onMessage: () => {} },
-	{ name: "pallas", symbol: "⚴", onMessage: () => {} },
-	{ name: "juno", symbol: "⚵", onMessage: () => {} },
-	{ name: "vesta", symbol: "⚶", onMessage: () => {} },
-	{ name: "chiron", symbol: "⚷", onMessage: () => {} },
-	{ name: "lilith", symbol: "⚸", onMessage: () => {} },
-	{ name: "sextile", symbol: "⚹", onMessage: () => {} },
-	{ name: "semisextile", symbol: "⚺", onMessage: () => {} },
-	{ name: "quincunx", symbol: "⚻", onMessage: () => {} },
-	{ name: "sesquiquadrate", symbol: "⚼", onMessage: () => {} },
+	{
+		name: "sun",
+		symbol: "☉",
+		onInit: ({ neighbourhood, self }) => {
+			setInterval(() => {
+				neighbourhood.forEach((hex) => {
+					send(hex, null);
+				});
+			}, 1000);
+		},
+		inlets: [],
+		outlets: [0, 1, 2, 3, 4, 5],
+	},
+	{ name: "moon", symbol: "☽", inlets: [], outlets: [] },
+	{ name: "earth", symbol: "♁", inlets: [], outlets: [] },
+	{
+		name: "mercury",
+		symbol: "☿",
+		inlets: [],
+		outlets: [],
+	},
+	{ name: "venus", symbol: "♀", inlets: [], outlets: [] },
+	{ name: "mars", symbol: "♂", inlets: [], outlets: [] },
+	{
+		name: "jupiter",
+		symbol: "♃",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "saturn",
+		symbol: "♄",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "uranus",
+		symbol: "♅",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "neptune",
+		symbol: "♆",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "conjunction",
+		symbol: "☌",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "opposition",
+		symbol: "☍",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "aries",
+		symbol: "♈︎",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "taurus",
+		symbol: "♉︎",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "gemini",
+		symbol: "♊︎",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "cancer",
+		symbol: "♋︎",
+		inlets: [],
+		outlets: [],
+	},
+	{ name: "leo", symbol: "♌︎", inlets: [], outlets: [] },
+	{
+		name: "virgo",
+		symbol: "♍︎",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "libra",
+		symbol: "♎︎",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "scorpio",
+		symbol: "♏︎",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "sagittarius",
+		symbol: "♐︎",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "capricorn",
+		symbol: "♑︎",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "aquarius",
+		symbol: "♒︎",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "pisces",
+		symbol: "♓︎",
+		inlets: [],
+		outlets: [],
+	},
+	{ name: "pluto", symbol: "♇", inlets: [], outlets: [] },
+	{ name: "ceres", symbol: "⚳", inlets: [], outlets: [] },
+	{
+		name: "pallas",
+		symbol: "⚴",
+		inlets: [],
+		outlets: [],
+	},
+	{ name: "juno", symbol: "⚵", inlets: [], outlets: [] },
+	{ name: "vesta", symbol: "⚶", inlets: [], outlets: [] },
+	{
+		name: "chiron",
+		symbol: "⚷",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "lilith",
+		symbol: "⚸",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "sextile",
+		symbol: "⚹",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "semisextile",
+		symbol: "⚺",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "quincunx",
+		symbol: "⚻",
+		inlets: [],
+		outlets: [],
+	},
+	{
+		name: "sesquiquadrate",
+		symbol: "⚼",
+		inlets: [],
+		outlets: [],
+	},
 ];
 
 const cells = new Map<Hex, Cell>();
@@ -70,10 +233,10 @@ const hexPolygonPoints = (hex: Hex): [number, number][] =>
 grid.forEach((hex) => {
 	const polygon = svg
 		.polygon(hexPolygonPoints(hex))
-		.stroke({ color: "black" })
-		.fill("none");
+		.stroke({ color: "black", width: 3, linejoin: "round" })
+		.fill("#ffffff");
 
-	cells.set(hex, { polygon });
+	cells.set(hex, { polygon, rotation: 0 });
 });
 
 function addSymbol(event: MouseEvent) {
@@ -84,7 +247,12 @@ function addSymbol(event: MouseEvent) {
 	const hex = grid.pointToHex({ x, y });
 	const cell = cells.get(hex)!;
 
-	const glyph = glyphs[Math.floor(Math.random() * glyphs.length)];
+	const glyph = glyphs[0];
+	glyph.onInit?.({
+		neighbourhood: neighbourhood(hex),
+		self: hex,
+	});
+
 	cell.glyph = glyph;
 
 	cell.text?.remove();
