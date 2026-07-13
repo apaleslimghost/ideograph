@@ -35,6 +35,7 @@ function send<T>(target: Hex, data: T) {
 
 type Glyph<R extends object = Record<string, unknown>> = {
 	name: string;
+	shortcut: string;
 	symbol: string;
 	onMessage?: <T>(this: Glyph<R>, context: Context<T>) => void;
 	onInit?: <T>(this: Glyph<R>, context: Context<T>) => void;
@@ -57,6 +58,7 @@ const glyph = <R extends object>(g: Glyph<R>) => g
 const glyphs: Glyph[] = [
 	glyph<{ loop?: Tone.Loop }>({
 		name: "sun",
+		shortcut: 's',
 		symbol: "☉",
 		onInit({ neighbourhood }) {
 			this.loop = new Tone.Loop(() => {
@@ -66,176 +68,216 @@ const glyphs: Glyph[] = [
 			}, "4n").start("1m");
 		},
 		onEnd() {
+			console.log(this.loop)
 			this.loop?.stop('1m')
 		},
 		inlets: [],
 		outlets: [0, 1, 2, 3, 4, 5],
 	}),
-	{ name: "moon", symbol: "☽", inlets: [], outlets: [] },
-	{ name: "earth", symbol: "♁", inlets: [], outlets: [] },
+	{ name: "moon", shortcut: 'l', symbol: "☽", inlets: [], outlets: [] },
+	{ name: "earth", shortcut: 'e', symbol: "♁", inlets: [], outlets: [] },
 	{
 		name: "mercury",
+		shortcut: 'h',
 		symbol: "☿",
 		inlets: [],
 		outlets: [],
 	},
-	{ name: "venus", symbol: "♀", inlets: [], outlets: [] },
-	{ name: "mars", symbol: "♂", inlets: [], outlets: [] },
+	{ name: "venus", shortcut: 'v', symbol: "♀", inlets: [], outlets: [] },
+	{ name: "mars", shortcut: 'm', symbol: "♂", inlets: [], outlets: [] },
 	{
 		name: "jupiter",
+		shortcut: 'j',
 		symbol: "♃",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "saturn",
+		shortcut: 'z',
 		symbol: "♄",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "uranus",
+		shortcut: 'u',
 		symbol: "♅",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "neptune",
+		shortcut: 'n',
 		symbol: "♆",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "conjunction",
+		shortcut: '=',
 		symbol: "☌",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "opposition",
+		shortcut: '-',
 		symbol: "☍",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "aries",
+		shortcut: '1',
 		symbol: "♈︎",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "taurus",
+		shortcut: '2',
 		symbol: "♉︎",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "gemini",
+		shortcut: '3',
 		symbol: "♊︎",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "cancer",
+		shortcut: '4',
 		symbol: "♋︎",
 		inlets: [],
 		outlets: [],
 	},
-	{ name: "leo", symbol: "♌︎", inlets: [], outlets: [] },
+	{ name: "leo", shortcut: '5', symbol: "♌︎", inlets: [], outlets: [] },
 	{
 		name: "virgo",
+		shortcut: '6',
 		symbol: "♍︎",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "libra",
+		shortcut: '7',
 		symbol: "♎︎",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "scorpio",
+		shortcut: '8',
 		symbol: "♏︎",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "sagittarius",
+		shortcut: '9',
 		symbol: "♐︎",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "capricorn",
+		shortcut: '0',
 		symbol: "♑︎",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "aquarius",
+		shortcut: '_',
 		symbol: "♒︎",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "pisces",
+		shortcut: '+',
 		symbol: "♓︎",
 		inlets: [],
 		outlets: [],
 	},
-	{ name: "pluto", symbol: "♇", inlets: [], outlets: [] },
-	{ name: "ceres", symbol: "⚳", inlets: [], outlets: [] },
+	{
+		name: "pluto",
+		shortcut: '!', symbol: "♇", inlets: [], outlets: []
+	},
+	{
+		name: "ceres",
+		shortcut: '"', symbol: "⚳", inlets: [], outlets: []
+	},
 	{
 		name: "pallas",
+		shortcut: '£',
 		symbol: "⚴",
 		inlets: [],
 		outlets: [],
 	},
-	{ name: "juno", symbol: "⚵", inlets: [], outlets: [] },
-	{ name: "vesta", symbol: "⚶", inlets: [], outlets: [] },
+	{
+		name: "juno",
+		shortcut: '(', symbol: "⚵", inlets: [], outlets: []
+	},
+	{
+		name: "vesta",
+		shortcut: ')', symbol: "⚶", inlets: [], outlets: []
+	},
 	{
 		name: "chiron",
+		shortcut: '[',
 		symbol: "⚷",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "lilith",
+		shortcut: '',
 		symbol: "⚸",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "sextile",
+		shortcut: '*',
 		symbol: "⚹",
-		inlets: [],
-		outlets: [],
+		inlets: [0],
+		outlets: [1, 2, 3, 4, 5],
 		onMessage(ctx) {
-			ctx.neighbourhood.forEach((hex) => {
-				send(hex, ctx.data);
+			this.outlets.forEach((outlet) => {
+				send(ctx.neighbourhood[outlet], ctx.data);
 			});
 		},
 	},
 	{
 		name: "semisextile",
+		shortcut: '%',
 		symbol: "⚺",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "quincunx",
+		shortcut: '^',
 		symbol: "⚻",
 		inlets: [],
 		outlets: [],
 	},
 	{
 		name: "sesquiquadrate",
+		shortcut: '$',
 		symbol: "⚼",
 		inlets: [],
 		outlets: [],
 	},
 ];
+
+let selectedHex: Hex | undefined = undefined
 
 const cells = new Map<Hex, Cell>();
 
@@ -267,7 +309,7 @@ function getEventHex(event: MouseEvent | WheelEvent) {
 	return grid.pointToHex({ x, y });
 }
 
-function setGlyph(hex: Hex, glyph: Glyph) {
+function setGlyph(hex: Hex, glyph?: Glyph) {
 	const cell = cells.get(hex)!;
 
 	if (cell.glyph) {
@@ -277,34 +319,48 @@ function setGlyph(hex: Hex, glyph: Glyph) {
 		})
 	}
 
-	glyph.data = glyph.onInit?.({
-		neighbourhood: neighbourhood(hex),
-		self: hex,
-	});
-
 	cell.glyph = glyph;
 
 	cell.text?.remove();
 
-	const text = svg
-		.text(glyph.symbol)
-		.font({
-			family: "monospace",
-			anchor: "middle",
-			size: "3em",
-			leading: "3em",
-			"dominant-baseline": "central",
-		})
-		.amove(hex.x, hex.y);
+	if (glyph) {
+		glyph.data = glyph.onInit?.({
+			neighbourhood: neighbourhood(hex),
+			self: hex,
+		});
 
-	cell.text = text;
+		const text = svg
+			.text(glyph.symbol)
+			.font({
+				family: "monospace",
+				anchor: "middle",
+				size: "3em",
+				leading: "3em",
+				"dominant-baseline": "central",
+			})
+			.amove(hex.x, hex.y);
+
+		cell.text = text;
+	}
 }
 
-function addSymbol(event: MouseEvent) {
+function selectHex(event: MouseEvent) {
 	const hex = getEventHex(event);
 	if (!hex) return;
 
-	setGlyph(hex, glyphs[0]);
+	cells.forEach(cell => {
+		cell.polygon.stroke({
+			color: "black", width: 3, linejoin: "round"
+		})
+	})
+
+	const cell = cells.get(hex)
+	if (!cell) return
+
+	selectedHex = hex
+	cell.polygon.stroke({
+		color: "black", width: 6, linejoin: "round"
+	})
 }
 
 function rotateSymbol(event: WheelEvent) {
@@ -319,8 +375,19 @@ function rotateSymbol(event: WheelEvent) {
 	setGlyph(hex, glyph);
 }
 
-space.addEventListener("mousedown", addSymbol);
+function setCell(event: KeyboardEvent) {
+	console.log(event, selectedHex)
+	if (!selectedHex) return
+
+	const glyph = glyphs.find(g => g.shortcut === event.key)
+	if (glyph) {
+		setGlyph(selectedHex, glyph)
+	}
+}
+
+space.addEventListener("mousedown", selectHex);
 space.addEventListener("wheel", rotateSymbol);
+window.addEventListener('keypress', setCell)
 
 space.addEventListener("click", async () => {
 	if (space.classList.contains("pending")) {
