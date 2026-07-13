@@ -1,6 +1,6 @@
-import { defineHex, Grid, type Hex, rectangle, ring } from "honeycomb-grid";
+import { defineHex, Grid, type Hex, Orientation, type Point, rectangle, ring } from "honeycomb-grid";
 import "./index.css";
-import { type Polygon, SVG, type Text } from "@svgdotjs/svg.js";
+import { create, type Polygon, Shape, SVG, type Text } from "@svgdotjs/svg.js";
 import * as Tone from "tone";
 
 const space = document.querySelector<HTMLDivElement>("#space")!;
@@ -9,29 +9,35 @@ type Context<T> = {
 	neighbourhood: Hex[];
 	self: Hex;
 	data?: T;
+	send: <T>(target: Hex, data: T) => void
 };
 
 function neighbourhood(hex: Hex): Hex[] {
 	return Array.from(grid.traverse(ring({ center: hex, radius: 1 })));
 }
 
-function send<T>(target: Hex, data: T) {
-	const cell = cells.get(target);
-	const context: Context<T> = {
-		neighbourhood: neighbourhood(target),
-		self: target,
-		data,
-	};
+const createContext = <T>(hex: Hex, data: T): Context<T> => ({
+	neighbourhood: neighbourhood(hex),
+	self: hex,
+	data,
+	send<T>(target: Hex, data: T) {
+		const cell = cells.get(target);
+		const context = createContext(target, data)
 
-	cell?.polygon
-		.fill(cell.glyph ? "#CE93D8" : "#F3E5F5")
-		.animate(200)
-		.fill("#ffffff");
+		cell?.polygon
+			.fill(cell.glyph ? "#CE93D8" : "#F3E5F5")
+			.animate(200)
+			.fill("#ffffff");
 
-	if (cell?.glyph) {
-		cell.glyph.onMessage?.(context);
+		const targetDirection = context.neighbourhood.findIndex(
+			h => hex.equals(h)
+		) as HexSide
+
+		if (cell?.glyph && cell.glyph.inlets.includes(targetDirection)) {
+			cell.glyph.onMessage?.(context);
+		}
 	}
-}
+})
 
 type Glyph<R extends object = Record<string, unknown>> = {
 	name: string;
@@ -48,7 +54,7 @@ type HexSide = 0 | 1 | 2 | 3 | 4 | 5;
 
 type Cell = {
 	polygon: Polygon;
-	text?: Text;
+	drawings: Shape[];
 	glyph?: Glyph;
 	rotation: HexSide;
 };
@@ -60,7 +66,7 @@ const glyphs: Glyph[] = [
 		name: "sun",
 		shortcut: 's',
 		symbol: "☉",
-		onInit({ neighbourhood }) {
+		onInit({ neighbourhood, send }) {
 			this.loop = new Tone.Loop(() => {
 				neighbourhood.forEach((hex) => {
 					send(hex, null);
@@ -248,9 +254,9 @@ const glyphs: Glyph[] = [
 		symbol: "⚹",
 		inlets: [0],
 		outlets: [1, 2, 3, 4, 5],
-		onMessage(ctx) {
+		onMessage({ neighbourhood, send, data }) {
 			this.outlets.forEach((outlet) => {
-				send(ctx.neighbourhood[outlet], ctx.data);
+				send(neighbourhood[outlet], data);
 			});
 		},
 	},
@@ -282,19 +288,25 @@ let selectedHex: Hex | undefined = undefined
 const cells = new Map<Hex, Cell>();
 
 const Tile = defineHex({ dimensions: 30 });
+
 const grid = new Grid(Tile, rectangle({ width: 47, height: 47 }));
 const svg = SVG().addTo(space).size("100%", "100%");
 
 const hexPolygonPoints = (hex: Hex): [number, number][] =>
 	hex.corners.map(({ x, y }) => [x, y] as const);
 
+const midpoint = (a: Point, b: Point): Point => ({
+	x: (a.x + b.x) / 2,
+	y: (a.y + b.y) / 2,
+})
+
 grid.forEach((hex) => {
 	const polygon = svg
 		.polygon(hexPolygonPoints(hex))
-		.stroke({ color: "black", width: 3, linejoin: "round" })
-		.fill("#ffffff");
+		.stroke({ color: "black", width: 1, linejoin: "round" })
+		.fill("transparent");
 
-	cells.set(hex, { polygon, rotation: 0 });
+	cells.set(hex, { polygon, drawings: [], rotation: 0 });
 });
 
 function getEventHex(event: MouseEvent | WheelEvent) {
@@ -313,23 +325,17 @@ function setGlyph(hex: Hex, glyph?: Glyph) {
 	const cell = cells.get(hex)!;
 
 	if (cell.glyph) {
-		cell.glyph.onEnd?.({
-			neighbourhood: neighbourhood(hex),
-			self: hex
-		})
+		cell.glyph.onEnd?.(createContext(hex, null))
 	}
 
 	cell.glyph = glyph;
 
-	cell.text?.remove();
+	cell.drawings.forEach(d => d.remove());
 
 	if (glyph) {
-		glyph.data = glyph.onInit?.({
-			neighbourhood: neighbourhood(hex),
-			self: hex,
-		});
+		glyph.data = glyph.onInit?.(createContext(hex, null));
 
-		const text = svg
+		cell.drawings.push(svg
 			.text(glyph.symbol)
 			.font({
 				family: "monospace",
@@ -338,9 +344,31 @@ function setGlyph(hex: Hex, glyph?: Glyph) {
 				leading: "3em",
 				"dominant-baseline": "central",
 			})
-			.amove(hex.x, hex.y);
+			.amove(hex.x, hex.y));
 
-		cell.text = text;
+		glyph.inlets.forEach(i => {
+			cell.drawings.push(svg
+				.line([
+					[hex.corners[i].x, hex.corners[i].y],
+					[hex.corners[(i + 1) % 6].x, hex.corners[(i + 1) % 6].y],
+				])
+				.stroke({
+					color: '#ff0000',
+					width: 3
+				}))
+		})
+
+		glyph.outlets.forEach(i => {
+			cell.drawings.push(svg
+				.line([
+					[hex.corners[i].x, hex.corners[i].y],
+					[hex.corners[(i + 1) % 6].x, hex.corners[(i + 1) % 6].y],
+				])
+				.stroke({
+					color: '#0000ff',
+					width: 3
+				}))
+		})
 	}
 }
 
@@ -350,7 +378,7 @@ function selectHex(event: MouseEvent) {
 
 	cells.forEach(cell => {
 		cell.polygon.stroke({
-			color: "black", width: 3, linejoin: "round"
+			color: "black", width: 1, linejoin: "round"
 		})
 	})
 
