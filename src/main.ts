@@ -376,18 +376,21 @@ function rotateSymbol(event: WheelEvent) {
 }
 
 function setCell(event: KeyboardEvent) {
-	console.log(event, selectedHex)
 	if (!selectedHex) return
 
-	const glyph = glyphs.find(g => g.shortcut === event.key)
-	if (glyph) {
-		setGlyph(selectedHex, glyph)
+	if (event.key === 'Backspace') {
+		setGlyph(selectedHex, undefined)
+	} else {
+		const glyph = glyphs.find(g => g.shortcut === event.key)
+		if (glyph) {
+			setGlyph(selectedHex, glyph)
+		}
 	}
 }
 
 space.addEventListener("mousedown", selectHex);
 space.addEventListener("wheel", rotateSymbol);
-window.addEventListener('keypress', setCell)
+window.addEventListener('keydown', setCell)
 
 space.addEventListener("click", async () => {
 	if (space.classList.contains("pending")) {
