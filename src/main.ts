@@ -33,15 +33,15 @@ function send<T>(target: Hex, data: T) {
 	}
 }
 
-type Glyph = {
+type Glyph<R extends object = Record<string, unknown>> = {
 	name: string;
 	symbol: string;
-	onMessage?: <T>(context: Context<T>) => void;
-	onInit?: <T>(context: Context<T>) => void;
-	onEnd?: <T>(context: Context<T>) => void;
+	onMessage?: <T>(this: Glyph<R>, context: Context<T>) => void;
+	onInit?: <T>(this: Glyph<R>, context: Context<T>) => void;
+	onEnd?: <T>(this: Glyph<R>, context: Context<T>) => void;
 	inlets: HexSide[];
 	outlets: HexSide[];
-};
+} & R;
 
 type HexSide = 0 | 1 | 2 | 3 | 4 | 5;
 
@@ -52,20 +52,25 @@ type Cell = {
 	rotation: HexSide;
 };
 
+const glyph = <R extends object>(g: Glyph<R>) => g
+
 const glyphs: Glyph[] = [
-	{
+	glyph<{ loop?: Tone.Loop }>({
 		name: "sun",
 		symbol: "☉",
-		onInit: ({ neighbourhood }) => {
-			new Tone.Loop(() => {
+		onInit({ neighbourhood }) {
+			this.loop = new Tone.Loop(() => {
 				neighbourhood.forEach((hex) => {
 					send(hex, null);
 				});
 			}, "4n").start("1m");
 		},
+		onEnd() {
+			this.loop?.stop('1m')
+		},
 		inlets: [],
 		outlets: [0, 1, 2, 3, 4, 5],
-	},
+	}),
 	{ name: "moon", symbol: "☽", inlets: [], outlets: [] },
 	{ name: "earth", symbol: "♁", inlets: [], outlets: [] },
 	{
@@ -265,7 +270,14 @@ function getEventHex(event: MouseEvent | WheelEvent) {
 function setGlyph(hex: Hex, glyph: Glyph) {
 	const cell = cells.get(hex)!;
 
-	glyph.onInit?.({
+	if (cell.glyph) {
+		cell.glyph.onEnd?.({
+			neighbourhood: neighbourhood(hex),
+			self: hex
+		})
+	}
+
+	glyph.data = glyph.onInit?.({
 		neighbourhood: neighbourhood(hex),
 		self: hex,
 	});
