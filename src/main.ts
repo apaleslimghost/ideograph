@@ -5,7 +5,13 @@ import * as Tone from "tone";
 
 const space = document.querySelector<HTMLDivElement>("#space")!;
 
-type Context<T> = {
+type Context<R extends object = Record<string, unknown>> = {
+	glyph: Glyph<R>,
+	hex: Hex,
+	cell: Cell<R>
+}
+
+type Message<T> = {
 	neighbourhood: Hex[];
 	self: Hex;
 	data?: T;
@@ -16,25 +22,29 @@ function neighbourhood(hex: Hex): Hex[] {
 	return Array.from(grid.traverse(ring({ center: hex, radius: 1 })));
 }
 
-const createContext = <T>(hex: Hex, data: T): Context<T> => ({
+const message = <T>(hex: Hex, data: T): Message<T> => ({
 	neighbourhood: neighbourhood(hex),
 	self: hex,
 	data,
 	send<T>(target: Hex, data: T) {
 		const cell = cells.get(target);
-		const context = createContext(target, data)
+		const msg = message(target, data)
 
 		cell?.polygon
 			.fill(cell.glyph ? "#CE93D8" : "#F3E5F5")
 			.animate(200)
 			.fill("#ffffff");
 
-		const targetDirection = context.neighbourhood.findIndex(
+		const targetDirection = msg.neighbourhood.findIndex(
 			h => hex.equals(h)
 		) as HexSide
 
 		if (cell?.glyph && cell.glyph.inlets.includes(targetDirection)) {
-			cell.glyph.onMessage?.(context);
+			cell.glyph.onMessage?.call({
+				glyph: cell.glyph,
+				hex,
+				cell
+			}, msg);
 		}
 	}
 })
@@ -43,21 +53,21 @@ type Glyph<R extends object = Record<string, unknown>> = {
 	name: string;
 	shortcut: string;
 	symbol: string;
-	onMessage?: <T>(this: Glyph<R>, context: Context<T>) => void;
-	onInit?: <T>(this: Glyph<R>, context: Context<T>) => void;
-	onEnd?: <T>(this: Glyph<R>, context: Context<T>) => void;
+	onMessage?: <T>(this: Context<R>, message: Message<T>) => void;
+	onInit?: <T>(this: Context<R>, message: Message<T>) => void;
+	onEnd?: <T>(this: Context<R>, message: Message<T>) => void;
 	inlets: HexSide[];
 	outlets: HexSide[];
-} & R;
+};
 
 type HexSide = 0 | 1 | 2 | 3 | 4 | 5;
 
-type Cell = {
+type Cell<R extends object = Record<string, unknown>> = {
 	polygon: Polygon;
 	drawings: Shape[];
 	glyph?: Glyph;
 	rotation: HexSide;
-};
+} & R;
 
 const glyph = <R extends object>(g: Glyph<R>) => g
 
@@ -67,15 +77,14 @@ const glyphs: Glyph[] = [
 		shortcut: 's',
 		symbol: "☉",
 		onInit({ neighbourhood, send }) {
-			this.loop = new Tone.Loop(() => {
+			this.cell.loop = new Tone.Loop(() => {
 				neighbourhood.forEach((hex) => {
 					send(hex, null);
 				});
 			}, "4n").start("1m");
 		},
 		onEnd() {
-			console.log(this.loop)
-			this.loop?.stop('1m')
+			this.cell.loop?.stop('1m')
 		},
 		inlets: [],
 		outlets: [0, 1, 2, 3, 4, 5],
@@ -255,7 +264,7 @@ const glyphs: Glyph[] = [
 		inlets: [0],
 		outlets: [1, 2, 3, 4, 5],
 		onMessage({ neighbourhood, send, data }) {
-			this.outlets.forEach((outlet) => {
+			this.glyph.outlets.forEach((outlet) => {
 				send(neighbourhood[outlet], data);
 			});
 		},
@@ -295,11 +304,6 @@ const svg = SVG().addTo(space).size("100%", "100%");
 const hexPolygonPoints = (hex: Hex): [number, number][] =>
 	hex.corners.map(({ x, y }) => [x, y] as const);
 
-const midpoint = (a: Point, b: Point): Point => ({
-	x: (a.x + b.x) / 2,
-	y: (a.y + b.y) / 2,
-})
-
 grid.forEach((hex) => {
 	const polygon = svg
 		.polygon(hexPolygonPoints(hex))
@@ -325,7 +329,11 @@ function setGlyph(hex: Hex, glyph?: Glyph) {
 	const cell = cells.get(hex)!;
 
 	if (cell.glyph) {
-		cell.glyph.onEnd?.(createContext(hex, null))
+		cell.glyph.onEnd?.call({
+			glyph: cell.glyph,
+			hex,
+			cell
+		}, message(hex, null))
 	}
 
 	cell.glyph = glyph;
@@ -333,7 +341,11 @@ function setGlyph(hex: Hex, glyph?: Glyph) {
 	cell.drawings.forEach(d => d.remove());
 
 	if (glyph) {
-		glyph.data = glyph.onInit?.(createContext(hex, null));
+		glyph.onInit?.call({
+			glyph,
+			hex,
+			cell
+		}, message(hex, null));
 
 		cell.drawings.push(svg
 			.text(glyph.symbol)
