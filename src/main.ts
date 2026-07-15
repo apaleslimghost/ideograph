@@ -39,7 +39,7 @@ const message = <T>(hex: Hex, data: T): Message<T> => ({
 			h => hex.equals(h)
 		) as HexSide
 
-		if (cell?.glyph && cell.glyph.inlets.includes(targetDirection)) {
+		if (cell?.glyph && cell.glyph.inlets.includes((6 + (targetDirection - cell.rotation)) % 6 as HexSide)) {
 			cell.glyph.onMessage?.call({
 				glyph: cell.glyph,
 				hex,
@@ -79,7 +79,7 @@ const glyphs: Glyph[] = [
 		onInit({ neighbourhood, send }) {
 			this.cell.loop = new Tone.Loop(() => {
 				this.glyph.outlets.forEach((index) => {
-					send(neighbourhood[index], null);
+					send(neighbourhood[(index + this.cell.rotation) % 6], null);
 				});
 			}, "4n").start("1m");
 		},
@@ -265,7 +265,7 @@ const glyphs: Glyph[] = [
 		outlets: [1, 2, 3, 4, 5],
 		onMessage({ neighbourhood, send, data }) {
 			this.glyph.outlets.forEach((outlet) => {
-				send(neighbourhood[outlet], data);
+				send(neighbourhood[(outlet + this.cell.rotation) % 6], data);
 			});
 		},
 	},
@@ -325,6 +325,52 @@ function getEventHex(event: MouseEvent | WheelEvent) {
 	return grid.pointToHex({ x, y });
 }
 
+function renderHex(hex: Hex) {
+	const cell = cells.get(hex);
+	if (!cell) return
+
+	cell.drawings.forEach(d => d.remove());
+	cell.drawings = []
+	if (!cell.glyph) return;
+
+	cell.drawings = [
+		svg
+			.text(cell.glyph.symbol)
+			.font({
+				family: "monospace",
+				anchor: "middle",
+				size: "3em",
+				leading: "3em",
+				"dominant-baseline": "central",
+			})
+			.amove(hex.x, hex.y),
+
+		...cell.glyph.inlets.map(i =>
+			svg
+				.line([
+					[hex.corners[(i + cell.rotation) % 6].x, hex.corners[(i + cell.rotation) % 6].y],
+					[hex.corners[(i + cell.rotation + 1) % 6].x, hex.corners[(i + cell.rotation + 1) % 6].y],
+				])
+				.stroke({
+					color: '#ff0000',
+					width: 3
+				})
+		),
+
+		...cell.glyph.outlets.map(i =>
+			svg
+				.line([
+					[hex.corners[(i + cell.rotation) % 6].x, hex.corners[(i + cell.rotation) % 6].y],
+					[hex.corners[(i + cell.rotation + 1) % 6].x, hex.corners[(i + cell.rotation + 1) % 6].y],
+				])
+				.stroke({
+					color: '#0000ff',
+					width: 3
+				})
+		)
+	]
+}
+
 function setGlyph(hex: Hex, glyph?: Glyph) {
 	const cell = cells.get(hex)!;
 
@@ -338,8 +384,6 @@ function setGlyph(hex: Hex, glyph?: Glyph) {
 
 	cell.glyph = glyph;
 
-	cell.drawings.forEach(d => d.remove());
-
 	if (glyph) {
 		glyph.onInit?.call({
 			glyph,
@@ -347,40 +391,7 @@ function setGlyph(hex: Hex, glyph?: Glyph) {
 			cell
 		}, message(hex, null));
 
-		cell.drawings.push(svg
-			.text(glyph.symbol)
-			.font({
-				family: "monospace",
-				anchor: "middle",
-				size: "3em",
-				leading: "3em",
-				"dominant-baseline": "central",
-			})
-			.amove(hex.x, hex.y));
-
-		glyph.inlets.forEach(i => {
-			cell.drawings.push(svg
-				.line([
-					[hex.corners[i].x, hex.corners[i].y],
-					[hex.corners[(i + 1) % 6].x, hex.corners[(i + 1) % 6].y],
-				])
-				.stroke({
-					color: '#ff0000',
-					width: 3
-				}))
-		})
-
-		glyph.outlets.forEach(i => {
-			cell.drawings.push(svg
-				.line([
-					[hex.corners[i].x, hex.corners[i].y],
-					[hex.corners[(i + 1) % 6].x, hex.corners[(i + 1) % 6].y],
-				])
-				.stroke({
-					color: '#0000ff',
-					width: 3
-				}))
-		})
+		renderHex(hex)
 	}
 }
 
@@ -427,12 +438,18 @@ function handleKeyboard(event: KeyboardEvent) {
 			break
 		case ',': {
 			const cell = cells.get(selectedHex)
-			if (cell) cell.rotation++
+			if (cell) {
+				cell.rotation = (6 + (cell.rotation - 1)) % 6 as HexSide
+			}
+			renderHex(selectedHex)
 			break
 		}
 		case '.': {
 			const cell = cells.get(selectedHex)
-			if (cell) cell.rotation--
+			if (cell) {
+				cell.rotation = (cell.rotation + 1) % 6 as HexSide
+			}
+			renderHex(selectedHex)
 			break
 		}
 		case 'ArrowLeft': {
