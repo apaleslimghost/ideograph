@@ -1,4 +1,4 @@
-import { defineHex, Grid, type Hex, Orientation, type Point, rectangle, ring } from "honeycomb-grid";
+import { defineHex, Grid, type Hex, move, Orientation, type Point, rectangle, ring } from "honeycomb-grid";
 import "./index.css";
 import { create, type Polygon, Shape, SVG, type Text } from "@svgdotjs/svg.js";
 import * as Tone from "tone";
@@ -78,8 +78,8 @@ const glyphs: Glyph[] = [
 		symbol: "☉",
 		onInit({ neighbourhood, send }) {
 			this.cell.loop = new Tone.Loop(() => {
-				neighbourhood.forEach((hex) => {
-					send(hex, null);
+				this.glyph.outlets.forEach((index) => {
+					send(neighbourhood[index], null);
 				});
 			}, "4n").start("1m");
 		},
@@ -87,7 +87,7 @@ const glyphs: Glyph[] = [
 			this.cell.loop?.stop('1m')
 		},
 		inlets: [],
-		outlets: [0, 1, 2, 3, 4, 5],
+		outlets: [0],
 	}),
 	{ name: "moon", shortcut: 'l', symbol: "☽", inlets: [], outlets: [] },
 	{ name: "earth", shortcut: 'e', symbol: "♁", inlets: [], outlets: [] },
@@ -384,10 +384,7 @@ function setGlyph(hex: Hex, glyph?: Glyph) {
 	}
 }
 
-function selectHex(event: MouseEvent) {
-	const hex = getEventHex(event);
-	if (!hex) return;
-
+function selectHex(hex: Hex) {
 	cells.forEach(cell => {
 		cell.polygon.stroke({
 			color: "black", width: 1, linejoin: "round"
@@ -403,6 +400,12 @@ function selectHex(event: MouseEvent) {
 	})
 }
 
+function clickSelectHex(event: MouseEvent) {
+	const hex = getEventHex(event);
+	if (!hex) return;
+	selectHex(hex)
+}
+
 function rotateSymbol(event: WheelEvent) {
 	const hex = getEventHex(event);
 	if (!hex) return;
@@ -415,22 +418,72 @@ function rotateSymbol(event: WheelEvent) {
 	setGlyph(hex, glyph);
 }
 
-function setCell(event: KeyboardEvent) {
+function handleKeyboard(event: KeyboardEvent) {
 	if (!selectedHex) return
 
-	if (event.key === 'Backspace') {
-		setGlyph(selectedHex, undefined)
-	} else {
-		const glyph = glyphs.find(g => g.shortcut === event.key)
-		if (glyph) {
-			setGlyph(selectedHex, glyph)
+	switch (event.key) {
+		case 'Backspace':
+			setGlyph(selectedHex, undefined)
+			break
+		case ',': {
+			const cell = cells.get(selectedHex)
+			if (cell) cell.rotation++
+			break
+		}
+		case '.': {
+			const cell = cells.get(selectedHex)
+			if (cell) cell.rotation--
+			break
+		}
+		case 'ArrowLeft': {
+			const moveHex = grid.getHex({
+				...selectedHex,
+				q: selectedHex.q - 1,
+			})
+
+			if (moveHex) selectHex(moveHex)
+			break
+		}
+		case 'ArrowUp': {
+			const moveHex = grid.getHex({
+				...selectedHex,
+				r: selectedHex.r - 1,
+			})
+
+			if (moveHex) selectHex(moveHex)
+			break
+		}
+		case 'ArrowRight': {
+			const moveHex = grid.getHex({
+				...selectedHex,
+				q: selectedHex.q + 1,
+			})
+
+			if (moveHex) selectHex(moveHex)
+			break
+		}
+		case 'ArrowDown': {
+			const moveHex = grid.getHex({
+				...selectedHex,
+				r: selectedHex.r + 1,
+			})
+
+			if (moveHex) selectHex(moveHex)
+			break
+		}
+		default: {
+			console.log(event.key)
+			const glyph = glyphs.find(g => g.shortcut === event.key)
+			if (glyph) {
+				setGlyph(selectedHex, glyph)
+			}
 		}
 	}
 }
 
-space.addEventListener("mousedown", selectHex);
+space.addEventListener("mousedown", clickSelectHex);
 space.addEventListener("wheel", rotateSymbol);
-window.addEventListener('keydown', setCell)
+window.addEventListener('keydown', handleKeyboard)
 
 space.addEventListener("click", async () => {
 	if (space.classList.contains("pending")) {
