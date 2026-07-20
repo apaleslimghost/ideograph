@@ -5,10 +5,10 @@ import * as Tone from "tone";
 
 const space = document.querySelector<HTMLDivElement>("#space")!;
 
-type Context<R extends object = Record<string, unknown>> = {
-	glyph: Glyph<R>,
+type Context<T, R extends object = Record<string, unknown>> = {
+	glyph: Glyph<T, R>,
 	hex: Hex,
-	cell: Cell<R>
+	cell: Cell<T, R>
 }
 
 type Message<T> = {
@@ -18,68 +18,91 @@ type Message<T> = {
 	send: <T>(target: Hex, data: T) => void
 };
 
+type MessageWithFrom<T> = Message<T> & {
+	from: Hex,
+	inlet: HexSide
+}
+
 function neighbourhood(hex: Hex): Hex[] {
 	return Array.from(grid.traverse(ring({ center: hex, radius: 1 })));
 }
 
-const message = <T>(hex: Hex, data: T): Message<T> => ({
-	neighbourhood: neighbourhood(hex),
-	self: hex,
-	data,
-	send<T>(target: Hex, data: T) {
-		const cell = cells.get(target);
-		const msg = message(target, data)
+function message<T>(hex: Hex, data: T): Message<T>
+function message<T>(hex: Hex, data: T, from: Hex): MessageWithFrom<T>
+function message<T>(hex: Hex, data: T, from?: Hex): Message<T> | MessageWithFrom<T> {
+	const msg = {
+		neighbourhood: neighbourhood(hex),
+		self: hex,
+		data,
+		send<T>(target: Hex, data: T) {
+			const cell = cells.get(target);
+			const msg = message(target, data, hex)
 
-		cell?.polygon
-			.fill(cell.glyph ? "#CE93D8" : "#F3E5F5")
-			.animate(200)
-			.fill("#ffffff");
+			cell?.polygon
+				.fill(cell.glyph ? "#CE93D8" : "#F3E5F5")
+				.animate(200)
+				.fill("#ffffff");
 
-		const targetDirection = msg.neighbourhood.findIndex(
-			h => hex.equals(h)
-		) as HexSide
+			const targetDirection = msg.neighbourhood.findIndex(
+				h => hex.equals(h)
+			) as HexSide
 
-		if (cell?.glyph && cell.glyph.inlets.includes((6 + (targetDirection - cell.rotation)) % 6 as HexSide)) {
-			cell.glyph.onMessage?.call({
-				glyph: cell.glyph,
-				hex,
-				cell
-			}, msg);
+			if (cell?.glyph && cell.glyph.inlets.includes((6 + (targetDirection - cell.rotation)) % 6 as HexSide)) {
+				cell.glyph.onMessage?.call({
+					glyph: cell.glyph,
+					hex,
+					cell
+				}, msg);
+			}
 		}
 	}
-})
 
-type Glyph<R extends object = Record<string, unknown>> = {
+	if (from) {
+		const cell = cells.get(hex);
+
+		return {
+			...msg,
+			from,
+			inlet: (6 + (msg.neighbourhood.findIndex(
+				h => from.equals(h)
+			) - (cell?.rotation ?? 0))) % 6 as HexSide
+		}
+	}
+
+	return msg
+}
+
+type Glyph<T, R extends object = Record<string, unknown>> = {
 	name: string;
 	shortcut: string;
 	symbol: string;
-	onMessage?: <T>(this: Context<R>, message: Message<T>) => void;
-	onInit?: <T>(this: Context<R>, message: Message<T>) => void;
-	onEnd?: <T>(this: Context<R>, message: Message<T>) => void;
+	onMessage?: (this: Context<T, R>, message: MessageWithFrom<T>) => void;
+	onInit?: (this: Context<T, R>, message: Message<T>) => void;
+	onEnd?: (this: Context<T, R>, message: Message<T>) => void;
 	inlets: HexSide[];
 	outlets: HexSide[];
 };
 
 type HexSide = 0 | 1 | 2 | 3 | 4 | 5;
 
-type Cell<R extends object = Record<string, unknown>> = {
+type Cell<T, R extends object = Record<string, unknown>> = {
 	polygon: Polygon;
 	drawings: Shape[];
-	glyph?: Glyph;
+	glyph?: Glyph<T, R>;
 	rotation: HexSide;
 } & R;
 
-const glyph = <R extends object>(g: Glyph<R>) => g
+const glyph = <T, R extends object>(g: Glyph<T, R>) => g
 
-const glyphs: Glyph[] = [
-	glyph<{ loop?: Tone.Loop }>({
+const glyphs: Glyph<any>[] = [
+	glyph<void, { loop?: Tone.Loop }>({
 		name: "sun",
 		shortcut: 's',
 		symbol: "☉",
 		onInit({ neighbourhood, send }) {
-			this.cell.loop = new Tone.Loop(() => {
+			this.cell.loop = new Tone.Loop((time) => {
 				this.glyph.outlets.forEach((index) => {
-					send(neighbourhood[(index + this.cell.rotation) % 6], null);
+					send(neighbourhood[(index + this.cell.rotation) % 6], time);
 				});
 			}, "4n").start("1m");
 		},
@@ -276,25 +299,38 @@ const glyphs: Glyph[] = [
 		inlets: [],
 		outlets: [],
 	},
-	{
+	glyph<{}, { state?: 'send' | 'chain' }>({
 		name: "quincunx",
 		shortcut: '^',
 		symbol: "⚻",
-		inlets: [],
-		outlets: [],
-	},
+		inlets: [0, 1],
+		outlets: [2, 3],
+		onInit() {
+			this.cell.state = 'send'
+		},
+		onMessage({ inlet, neighbourhood, send, data }) {
+			if (inlet === 0) {
+				const to = this.cell.state === 'send' ? 2 : 3
+				this.cell.state = 'chain'
+				send(neighbourhood[(to + this.cell.rotation) % 6], data)
+			} else if (inlet === 1) {
+				this.cell.state = 'send'
+			}
+		},
+	}),
 	{
 		name: "sesquiquadrate",
 		shortcut: '$',
 		symbol: "⚼",
-		inlets: [],
+		inlets: [0, 1, 2, 3, 4, 5],
 		outlets: [],
+		onMessage: console.log
 	},
 ];
 
 let selectedHex: Hex | undefined = undefined
 
-const cells = new Map<Hex, Cell>();
+const cells = new Map<Hex, Cell<any>>();
 
 const Tile = defineHex({ dimensions: 30 });
 
@@ -371,7 +407,7 @@ function renderHex(hex: Hex) {
 	]
 }
 
-function setGlyph(hex: Hex, glyph?: Glyph) {
+function setGlyph(hex: Hex, glyph?: Glyph<unknown>) {
 	const cell = cells.get(hex)!;
 
 	if (cell.glyph) {
