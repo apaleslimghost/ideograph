@@ -429,6 +429,8 @@ function setGlyph(hex: Hex, glyph?: Glyph<unknown>) {
 
 		renderHex(hex)
 	}
+
+	renderHex(hex)
 }
 
 function selectHex(hex: Hex) {
