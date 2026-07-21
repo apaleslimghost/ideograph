@@ -15,7 +15,7 @@ type Message<T> = {
 	neighbourhood: Hex[];
 	self: Hex;
 	data?: T;
-	send: <T>(target: Hex, data: T) => void
+	send: <T>(target: Hex, data: T) => boolean
 };
 
 type MessageWithFrom<T> = Message<T> & {
@@ -50,12 +50,16 @@ function message<T>(hex: Hex, data: T, from?: Hex): Message<T> | MessageWithFrom
 			if (cell?.glyph && cell.glyph.inlets.includes((6 + (targetDirection - cell.rotation)) % 6 as HexSide)) {
 				cell.glyph.onMessage?.call({
 					glyph: cell.glyph,
-					hex,
+					hex: target,
 					cell
 				}, msg);
+
+				return true
 			}
+
+			return false
 		}
-	}
+	} satisfies Message<T>
 
 	if (from) {
 		const cell = cells.get(hex);
@@ -85,6 +89,8 @@ type Glyph<T, R extends object = Record<string, unknown>> = {
 
 type HexSide = 0 | 1 | 2 | 3 | 4 | 5;
 
+const sides: HexSide[] = [0, 1, 2, 3, 4, 5]
+
 type Cell<T, R extends object = Record<string, unknown>> = {
 	polygon: Polygon;
 	drawings: Shape[];
@@ -92,7 +98,7 @@ type Cell<T, R extends object = Record<string, unknown>> = {
 	rotation: HexSide;
 } & R;
 
-const glyph = <T, R extends object>(g: Glyph<T, R>) => g
+const glyph = <T, R extends object = Record<string, unknown>>(g: Glyph<T, R>) => g
 
 const glyphs: Glyph<any>[] = [
 	glyph<void, { loop?: Tone.Loop }>({
@@ -292,29 +298,44 @@ const glyphs: Glyph<any>[] = [
 			});
 		},
 	},
-	{
+	{ // clock divider slash euclid
 		name: "semisextile",
 		shortcut: '%',
 		symbol: "⚺",
 		inlets: [],
 		outlets: [],
 	},
-	glyph<{}, { state?: 'send' | 'chain' }>({
+	glyph<number | { reset: number }, { state?: 'send' | 'chain' }>({
 		name: "quincunx",
 		shortcut: '^',
 		symbol: "⚻",
-		inlets: [0, 1],
-		outlets: [2, 3],
+		inlets: [0, 3],
+		outlets: [0, 1, 3],
 		onInit() {
 			this.cell.state = 'send'
 		},
-		onMessage({ inlet, neighbourhood, send, data }) {
-			if (inlet === 0) {
-				const to = this.cell.state === 'send' ? 2 : 3
-				this.cell.state = 'chain'
-				send(neighbourhood[(to + this.cell.rotation) % 6], data)
-			} else if (inlet === 1) {
+		onMessage({ inlet, neighbourhood, send, data, from }) {
+			if (typeof data === 'number') {
+				if (this.cell.state === 'send') {
+					send(neighbourhood[1], data)
+					this.cell.state = 'chain'
+				} else {
+					const sent = send(neighbourhood[
+						(inlet + 3) % 6
+					], data)
+
+					if (!sent) {
+						this.cell.state = 'send'
+						send(from, { reset: data })
+					}
+				}
+			} else {
 				this.cell.state = 'send'
+				const sent = send(neighbourhood[(inlet + 3) % 6], data)
+				if (!sent) {
+					send(neighbourhood[1], data?.reset)
+					this.cell.state = 'chain'
+				}
 			}
 		},
 	}),
@@ -324,7 +345,9 @@ const glyphs: Glyph<any>[] = [
 		symbol: "⚼",
 		inlets: [0, 1, 2, 3, 4, 5],
 		outlets: [],
-		onMessage: console.log
+		onMessage({ data }) {
+			console.log(this.hex, data)
+		}
 	},
 ];
 
@@ -345,6 +368,15 @@ grid.forEach((hex) => {
 		.polygon(hexPolygonPoints(hex))
 		.stroke({ color: "black", width: 1, linejoin: "round" })
 		.fill("transparent");
+
+	svg
+		.text(`q:${hex.q}\nr:${hex.r}`)
+		.font({
+			family: 'monospace',
+			anchor: 'middle',
+			size: '0.5em'
+		})
+		.amove(hex.x, hex.y)
 
 	cells.set(hex, { polygon, drawings: [], rotation: 0 });
 });
@@ -381,28 +413,25 @@ function renderHex(hex: Hex) {
 			})
 			.amove(hex.x, hex.y),
 
-		...cell.glyph.inlets.map(i =>
-			svg
-				.line([
-					[hex.corners[(i + cell.rotation) % 6].x, hex.corners[(i + cell.rotation) % 6].y],
-					[hex.corners[(i + cell.rotation + 1) % 6].x, hex.corners[(i + cell.rotation + 1) % 6].y],
-				])
-				.stroke({
-					color: '#ff0000',
-					width: 3
-				})
-		),
+		...sides.flatMap(
+			i => {
+				const inlet = cell.glyph?.inlets.includes(i)
+				const outlet = cell.glyph?.outlets.includes(i)
 
-		...cell.glyph.outlets.map(i =>
-			svg
-				.line([
-					[hex.corners[(i + cell.rotation) % 6].x, hex.corners[(i + cell.rotation) % 6].y],
-					[hex.corners[(i + cell.rotation + 1) % 6].x, hex.corners[(i + cell.rotation + 1) % 6].y],
-				])
-				.stroke({
-					color: '#0000ff',
-					width: 3
-				})
+				const colour = `#${inlet ? 'ff' : '00'}00${outlet ? 'ff' : '00'}`
+
+				return inlet || outlet ? [
+					svg
+						.line([
+							[hex.corners[(i + cell.rotation) % 6].x, hex.corners[(i + cell.rotation) % 6].y],
+							[hex.corners[(i + cell.rotation + 1) % 6].x, hex.corners[(i + cell.rotation + 1) % 6].y],
+						])
+						.stroke({
+							color: colour,
+							width: 3
+						})
+				] : []
+			}
 		)
 	]
 }
@@ -426,8 +455,6 @@ function setGlyph(hex: Hex, glyph?: Glyph<unknown>) {
 			hex,
 			cell
 		}, message(hex, null));
-
-		renderHex(hex)
 	}
 
 	renderHex(hex)
