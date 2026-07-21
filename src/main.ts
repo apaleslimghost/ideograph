@@ -14,7 +14,7 @@ type Context<T, R extends object = Record<string, unknown>> = {
 type Message<T> = {
 	neighbourhood: Hex[];
 	self: Hex;
-	data?: T;
+	data: T;
 	send: <T>(target: Hex, data: T) => boolean
 };
 
@@ -100,6 +100,13 @@ type Cell<T, R extends object = Record<string, unknown>> = {
 
 const glyph = <T, R extends object = Record<string, unknown>>(g: Glyph<T, R>) => g
 
+type Timed<T> = {
+	time: Tone.Unit.Time,
+	data: T
+}
+
+const timed = <T>(time: Tone.Unit.Time, data: T): Timed<T> => ({ time, data })
+
 const glyphs: Glyph<any>[] = [
 	glyph<void, { loop?: Tone.Loop }>({
 		name: "sun",
@@ -171,84 +178,29 @@ const glyphs: Glyph<any>[] = [
 		inlets: [],
 		outlets: [],
 	},
-	{
-		name: "aries",
-		shortcut: '1',
-		symbol: "♈︎",
-		inlets: [],
-		outlets: [],
-	},
-	{
-		name: "taurus",
-		shortcut: '2',
-		symbol: "♉︎",
-		inlets: [],
-		outlets: [],
-	},
-	{
-		name: "gemini",
-		shortcut: '3',
-		symbol: "♊︎",
-		inlets: [],
-		outlets: [],
-	},
-	{
-		name: "cancer",
-		shortcut: '4',
-		symbol: "♋︎",
-		inlets: [],
-		outlets: [],
-	},
-	{ name: "leo", shortcut: '5', symbol: "♌︎", inlets: [], outlets: [] },
-	{
-		name: "virgo",
-		shortcut: '6',
-		symbol: "♍︎",
-		inlets: [],
-		outlets: [],
-	},
-	{
-		name: "libra",
-		shortcut: '7',
-		symbol: "♎︎",
-		inlets: [],
-		outlets: [],
-	},
-	{
-		name: "scorpio",
-		shortcut: '8',
-		symbol: "♏︎",
-		inlets: [],
-		outlets: [],
-	},
-	{
-		name: "sagittarius",
-		shortcut: '9',
-		symbol: "♐︎",
-		inlets: [],
-		outlets: [],
-	},
-	{
-		name: "capricorn",
-		shortcut: '0',
-		symbol: "♑︎",
-		inlets: [],
-		outlets: [],
-	},
-	{
-		name: "aquarius",
-		shortcut: '_',
-		symbol: "♒︎",
-		inlets: [],
-		outlets: [],
-	},
-	{
-		name: "pisces",
-		shortcut: '+',
-		symbol: "♓︎",
-		inlets: [],
-		outlets: [],
-	},
+	...[
+		["aries", '1', "♈︎"],
+		["taurus", '2', "♉︎"],
+		["gemini", '3', "♊︎"],
+		["cancer", '4', "♋︎"],
+		["leo", '5', "♌︎"],
+		["virgo", '6', "♍︎"],
+		["libra", '7', "♎︎"],
+		["scorpio", '8', "♏︎"],
+		["sagittarius", '9', "♐︎"],
+		["capricorn", '0', "♑︎"],
+		["aquarius", '_', "♒︎"],
+		["pisces", '+', "♓︎"],
+	].map(([name, shortcut, symbol], house) => glyph<Tone.Unit.Time>({
+		name,
+		shortcut,
+		symbol,
+		inlets: [0],
+		outlets: [3],
+		onMessage({ send, neighbourhood, data }) {
+			send(neighbourhood[(3 + this.cell.rotation) % 6], timed(data, 1 + house))
+		}
+	})),
 	{
 		name: "pluto",
 		shortcut: '!', symbol: "♇", inlets: [], outlets: []
