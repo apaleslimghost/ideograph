@@ -353,7 +353,7 @@ grid.forEach((hex) => {
 	cells.set(hex, { polygon, drawings: [], rotation: 0 });
 });
 
-function getEventHex(event: MouseEvent | WheelEvent) {
+function getEventHex(event: MouseEvent) {
 	if (space.classList.contains("pending")) {
 		return;
 	}
@@ -455,18 +455,6 @@ function clickSelectHex(event: MouseEvent) {
 	selectHex(hex)
 }
 
-function rotateSymbol(event: WheelEvent) {
-	const hex = getEventHex(event);
-	if (!hex) return;
-	const cell = cells.get(hex);
-	if (!cell?.glyph) return;
-
-	const dir = Math.sign(event.deltaY);
-	const index = glyphs.indexOf(cell.glyph);
-	const glyph = glyphs[(index + dir + glyphs.length) % glyphs.length];
-	setGlyph(hex, glyph);
-}
-
 function handleKeyboard(event: KeyboardEvent) {
 	if (!selectedHex) return
 
@@ -537,7 +525,6 @@ function handleKeyboard(event: KeyboardEvent) {
 }
 
 space.addEventListener("mousedown", clickSelectHex);
-space.addEventListener("wheel", rotateSymbol);
 window.addEventListener('keydown', handleKeyboard)
 
 space.addEventListener("click", async () => {
