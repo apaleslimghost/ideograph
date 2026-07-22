@@ -419,6 +419,7 @@ function setGlyph(hex: Hex, glyph?: Glyph<unknown>) {
 		}, message(hex, null))
 	}
 
+	cell.rotation = 0
 	cell.glyph = glyph;
 
 	if (glyph) {
