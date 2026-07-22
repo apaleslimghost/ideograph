@@ -1,6 +1,6 @@
 import { defineHex, Grid, type Hex, move, Orientation, type Point, rectangle, ring } from "honeycomb-grid";
 import "./index.css";
-import { create, type Polygon, Shape, SVG, type Text } from "@svgdotjs/svg.js";
+import { create, type Polygon, Runner, Shape, SVG, type Text } from "@svgdotjs/svg.js";
 import * as Tone from "tone";
 
 const space = document.querySelector<HTMLDivElement>("#space")!;
@@ -23,8 +23,19 @@ type MessageWithFrom<T> = Message<T> & {
 	inlet: HexSide
 }
 
+function rotateArray<T>(array: T[], rotation: number): T[] {
+	return [
+		...array.slice(array.length - rotation),
+		...array.slice(0, array.length - rotation)
+	]
+}
+
 function neighbourhood(hex: Hex): Hex[] {
-	return Array.from(grid.traverse(ring({ center: hex, radius: 1 })));
+	const cell = cells.get(hex)
+	return rotateArray(
+		Array.from(grid.traverse(ring({ center: hex, radius: 1 }))),
+		6 - (cell?.rotation ?? 0)
+	);
 }
 
 function message<T>(hex: Hex, data: T): Message<T>
@@ -36,18 +47,28 @@ function message<T>(hex: Hex, data: T, from?: Hex): Message<T> | MessageWithFrom
 		data,
 		send<T>(target: Hex, data: T) {
 			const cell = cells.get(target);
+			if (!cell) return false
+
 			const msg = message(target, data, hex)
 
-			cell?.polygon
+			cell.animation?.unschedule()
+			cell.animation = cell.polygon
 				.fill(cell.glyph ? "#CE93D8" : "#F3E5F5")
-				.animate(200)
+				.animate({
+					duration: 1000,
+					when: 'now',
+					delay: 0,
+					swing: false,
+					wait: 0,
+					times: 1
+				})
 				.fill("#ffffff");
 
 			const targetDirection = msg.neighbourhood.findIndex(
 				h => hex.equals(h)
 			) as HexSide
 
-			if (cell?.glyph && cell.glyph.inlets.includes((6 + (targetDirection - cell.rotation)) % 6 as HexSide)) {
+			if (cell.glyph && cell.glyph.inlets.includes(targetDirection as HexSide)) {
 				cell.glyph.onMessage?.call({
 					glyph: cell.glyph,
 					hex: target,
@@ -62,14 +83,12 @@ function message<T>(hex: Hex, data: T, from?: Hex): Message<T> | MessageWithFrom
 	} satisfies Message<T>
 
 	if (from) {
-		const cell = cells.get(hex);
-
 		return {
 			...msg,
 			from,
-			inlet: (6 + (msg.neighbourhood.findIndex(
+			inlet: msg.neighbourhood.findIndex(
 				h => from.equals(h)
-			) - (cell?.rotation ?? 0))) % 6 as HexSide
+			) as HexSide
 		}
 	}
 
@@ -96,6 +115,7 @@ type Cell<T, R extends object = Record<string, unknown>> = {
 	drawings: Shape[];
 	glyph?: Glyph<T, R>;
 	rotation: HexSide;
+	animation?: Runner
 } & R;
 
 const glyph = <T, R extends object = Record<string, unknown>>(g: Glyph<T, R>) => g
@@ -112,10 +132,10 @@ const glyphs: Glyph<any>[] = [
 		name: "sun",
 		shortcut: 's',
 		symbol: "☉",
-		onInit({ neighbourhood, send }) {
+		onInit({ send }) {
 			this.cell.loop = new Tone.Loop((time) => {
 				this.glyph.outlets.forEach((index) => {
-					send(neighbourhood[(index + this.cell.rotation) % 6], time);
+					send(neighbourhood(this.hex)[index], time);
 				});
 			}, "4n").start("1m");
 		},
@@ -198,7 +218,7 @@ const glyphs: Glyph<any>[] = [
 		inlets: [0],
 		outlets: [3],
 		onMessage({ send, neighbourhood, data }) {
-			send(neighbourhood[(3 + this.cell.rotation) % 6], timed(data, 1 + house))
+			send(neighbourhood[3], timed(data, 1 + house))
 		}
 	})),
 	{
@@ -246,7 +266,7 @@ const glyphs: Glyph<any>[] = [
 		outlets: [1, 2, 3, 4, 5],
 		onMessage({ neighbourhood, send, data }) {
 			this.glyph.outlets.forEach((outlet) => {
-				send(neighbourhood[(outlet + this.cell.rotation) % 6], data);
+				send(neighbourhood[outlet], data);
 			});
 		},
 	},
